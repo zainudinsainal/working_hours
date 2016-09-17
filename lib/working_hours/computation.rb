@@ -181,6 +181,20 @@ module WorkingHours
       end
     end
 
+    def working_days_in range, config: nil
+      config ||= wh_config
+      range.reduce(0) do |days, day|
+        day = in_config_zone(day, config: config)
+        if half_day?(day, config: config)
+          days + 0.5
+        elsif working_day?(day, config: config)
+          days + 1
+        else
+          days
+        end
+      end
+    end
+
     def working_time_between from, to, config: nil
       config ||= wh_config
       if to < from

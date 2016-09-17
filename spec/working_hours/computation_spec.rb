@@ -453,6 +453,53 @@ describe WorkingHours::Computation do
     end
   end
 
+  describe '#working_days_in' do
+    it 'returns 1 if same date' do
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 15) # friday
+             )).to eq(1)
+    end
+
+    it 'counts working days' do
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 22) # friday to friday
+             )).to eq(6)
+    end
+
+    it 'handles half days' do
+      WorkingHours::Config.half_days = {:mon => true}
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 22)  # friday to friday
+             )).to eq(5.5)
+    end
+
+    it 'handles arrays' do
+      expect(working_days_in(
+                 [
+                     # friday to friday
+                     Date.new(1991, 11, 15), # friday
+                     Date.new(1991, 11, 16), # saturday
+                     Date.new(1991, 11, 20), # wednesday
+                     Date.new(1991, 11, 22), # friday
+                 ]
+             )).to eq(3)
+    end
+
+    context 'handles edge days properly' do
+      it 'returns 1 from friday to saturday' do
+        expect(working_days_in(
+                   Date.new(1991, 11, 15)..Date.new(1991, 11, 16) # friday to saturday
+               )).to eq(1)
+      end
+
+      it 'returns 1 from sunday to monday' do
+        expect(working_days_in(
+                   Date.new(1991, 11, 17)..Date.new(1991, 11, 18) # sunday to monday
+               )).to eq(1)
+      end
+    end
+  end
+
   describe '#working_time_between' do
     it 'returns 0 if same time' do
       expect(working_time_between(
