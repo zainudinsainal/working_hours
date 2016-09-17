@@ -143,6 +143,13 @@ module WorkingHours
       config[:working_hours][time.wday].present? and not config[:holidays].include?(time.to_date)
     end
 
+    def half_day? time, config: nil
+      return false unless working_day?(time, config: config)
+      config ||= wh_config
+      time = in_config_zone(time, config: config)
+      config[:half_days][time.wday]
+    end
+
     def in_working_hours? time, config: nil
       config ||= wh_config
       time = in_config_zone(time, config: config)
@@ -164,7 +171,11 @@ module WorkingHours
         days = 0
         while from.to_date < to.to_date
           from += 1.day
-          days += 1 if working_day?(from, config: config)
+          if half_day?(from, config: config)
+            days += 0.5
+          elsif working_day?(from, config: config)
+            days += 1
+          end
         end
         days
       end

@@ -235,7 +235,8 @@ describe WorkingHours::Config do
       expect(subject).to eq({
           :working_hours => [nil, {32400=>61200}, {32400=>61200}, {32400=>61200}, {32400=>61200}, {32400=>61200}],
           :holidays => Set.new([]),
-          :time_zone => ActiveSupport::TimeZone['UTC']
+          :time_zone => ActiveSupport::TimeZone['UTC'],
+          :half_days => [false, false, false, false, false, false, false]
         })
     end
 
@@ -244,7 +245,8 @@ describe WorkingHours::Config do
       expect(subject).to eq({
         :working_hours => [nil, {73979 => 82799}],
         :holidays => Set.new([]),
-        :time_zone => ActiveSupport::TimeZone['UTC']
+        :time_zone => ActiveSupport::TimeZone['UTC'],
+        :half_days => [false, false, false, false, false, false, false]
       })
     end
 
@@ -253,7 +255,8 @@ describe WorkingHours::Config do
       expect(subject).to eq({
         :working_hours => [nil, {72000 => 86399.999999}],
         :holidays => Set.new([]),
-        :time_zone => ActiveSupport::TimeZone['UTC']
+        :time_zone => ActiveSupport::TimeZone['UTC'],
+        :half_days => [false, false, false, false, false, false, false]
       })
     end
 

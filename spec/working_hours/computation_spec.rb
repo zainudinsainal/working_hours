@@ -421,6 +421,14 @@ describe WorkingHours::Computation do
       )).to eq(5)
     end
 
+    it 'handles half days' do
+      WorkingHours::Config.half_days = {:mon => true}
+      expect(working_days_between(
+                 Date.new(1991, 11, 15), # friday to friday
+                 Date.new(1991, 11, 22)
+             )).to eq(4.5)
+    end
+
     it 'returns negative if params are reversed' do
       expect(working_days_between(
         Date.new(1991, 11, 22), # friday to friday
