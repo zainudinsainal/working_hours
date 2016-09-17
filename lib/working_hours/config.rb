@@ -52,7 +52,7 @@ module WorkingHours
             end
           end
           half_days.each do |day, is_half_day|
-            compiled[:half_days][DAYS_OF_WEEK.index(day)] = is_half_day === true
+            compiled[:half_days][DAYS_OF_WEEK.index(day)] = !!is_half_day
           end
           compiled[:holidays] = Set.new(holidays)
           compiled[:time_zone] = time_zone
