@@ -32,10 +32,24 @@ describe WorkingHours::Computation do
       expect(add_days(time, 1)).to eq(Date.new(2014, 4, 9)) # Wednesday
     end
 
+    it 'skips non worked days when origin is not worked' do
+      time = Date.new(2014, 4, 8) # Tuesday
+      WorkingHours::Config.working_hours = {mon: {'09:00' => '17:00'}, wed: {'09:00' => '17:00'}, thu: {'09:00' => '17:00'}, sun: {'09:00' => '17:00'}}
+      expect(add_days(time, 1)).to eq(Date.new(2014, 4, 10)) # Thursday
+      expect(add_days(time, -1)).to eq(Date.new(2014, 4, 6)) # Sunday
+    end
+
     it 'skips holidays' do
       time = Date.new(2014, 4, 7) # Monday
       WorkingHours::Config.holidays = [Date.new(2014, 4, 8)] # Tuesday
       expect(add_days(time, 1)).to eq(Date.new(2014, 4, 9)) # Wednesday
+    end
+
+    it 'skips holidays when origin is holiday' do
+      time = Date.new(2014, 4, 9) # Wednesday
+      WorkingHours::Config.holidays = [time] # Wednesday
+      expect(add_days(time, 1)).to eq(Date.new(2014, 4, 11)) # Friday
+      expect(add_days(time, -1)).to eq(Date.new(2014, 4, 7)) # Monday
     end
 
     it 'skips holidays and non worked days' do
@@ -43,6 +57,12 @@ describe WorkingHours::Computation do
       WorkingHours::Config.holidays = [Date.new(2014, 4, 9)] # Wednesday
       WorkingHours::Config.working_hours = {mon: {'09:00' => '17:00'}, wed: {'09:00' => '17:00'}}
       expect(add_days(time, 3)).to eq(Date.new(2014, 4, 21))
+    end
+
+    it 'returns the original value when adding 0 days' do
+      time = Date.new(2014, 4, 7)
+      WorkingHours::Config.holidays = [time]
+      expect(add_days(time, 0)).to eq(time)
     end
 
     it 'accepts time given from any time zone' do
@@ -421,6 +441,14 @@ describe WorkingHours::Computation do
       )).to eq(5)
     end
 
+    it 'handles half days' do
+      WorkingHours::Config.half_days = {:mon => true}
+      expect(working_days_between(
+                 Date.new(1991, 11, 15), # friday to friday
+                 Date.new(1991, 11, 22)
+             )).to eq(4.5)
+    end
+
     it 'returns negative if params are reversed' do
       expect(working_days_between(
         Date.new(1991, 11, 22), # friday to friday
@@ -441,6 +469,53 @@ describe WorkingHours::Computation do
           Date.new(1991, 11, 17), # sunday to monday
           Date.new(1991, 11, 18)
         )).to eq(1)
+      end
+    end
+  end
+
+  describe '#working_days_in' do
+    it 'returns 1 if same date' do
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 15) # friday
+             )).to eq(1)
+    end
+
+    it 'counts working days' do
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 22) # friday to friday
+             )).to eq(6)
+    end
+
+    it 'handles half days' do
+      WorkingHours::Config.half_days = {:mon => true}
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 22)  # friday to friday
+             )).to eq(5.5)
+    end
+
+    it 'handles arrays' do
+      expect(working_days_in(
+                 [
+                     # friday to friday
+                     Date.new(1991, 11, 15), # friday
+                     Date.new(1991, 11, 16), # saturday
+                     Date.new(1991, 11, 20), # wednesday
+                     Date.new(1991, 11, 22), # friday
+                 ]
+             )).to eq(3)
+    end
+
+    context 'handles edge days properly' do
+      it 'returns 1 from friday to saturday' do
+        expect(working_days_in(
+                   Date.new(1991, 11, 15)..Date.new(1991, 11, 16) # friday to saturday
+               )).to eq(1)
+      end
+
+      it 'returns 1 from sunday to monday' do
+        expect(working_days_in(
+                   Date.new(1991, 11, 17)..Date.new(1991, 11, 18) # sunday to monday
+               )).to eq(1)
       end
     end
   end
