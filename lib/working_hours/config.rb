@@ -34,7 +34,7 @@ module WorkingHours
 
       # Returns an optimized for computing version
       def precompiled
-        config_hash = [config[:working_hours], config[:holidays], config[:time_zone], config[:half_days]].hash
+        config_hash = [config[:working_hours], config[:holidays], config[:time_zone], config[:half_days], config[:biweekly]].hash
         if config_hash != config[:config_hash]
           config[:config_hash] = config_hash
           config.delete :precompiled
@@ -44,7 +44,7 @@ module WorkingHours
           validate_working_hours! config[:working_hours]
           validate_holidays! config[:holidays]
           validate_time_zone! config[:time_zone]
-          compiled = {working_hours: [], half_days: []}
+          compiled = {working_hours: [], half_days: [], biweekly: []}
           working_hours.each do |day, hours|
             compiled[:working_hours][DAYS_OF_WEEK.index(day)] = {}
             hours.each do |start, finish|
@@ -53,6 +53,9 @@ module WorkingHours
           end
           half_days.each do |day, is_half_day|
             compiled[:half_days][DAYS_OF_WEEK.index(day)] = !!is_half_day
+          end
+          biweekly.each do |day, is_biweekly|
+            compiled[:biweekly][DAYS_OF_WEEK.index(day)] = !!is_biweekly
           end
           compiled[:holidays] = Set.new(holidays)
           compiled[:time_zone] = time_zone
@@ -82,25 +85,38 @@ module WorkingHours
         config.delete :precompiled
       end
 
+      def biweekly
+        config[:biweekly]
+      end
+
+      def biweekly=(val)
+        validate_biweekly! val
+        config[:biweekly] = val
+        global_config[:biweekly] = val
+        config.delete :precompiled
+      end
+
       def reset!
         Thread.current[:working_hours] = default_config
       end
 
-      def with_config(working_hours: nil, holidays: nil, time_zone: nil, half_days: nil)
+      def with_config(working_hours: nil, holidays: nil, time_zone: nil, half_days: nil, biweekly: nil)
         original_working_hours = self.working_hours
         original_holidays = self.holidays
         original_time_zone = self.time_zone
         original_half_days = self.half_days
+        original_biweekly = self.biweekly
         self.working_hours = working_hours if working_hours
         self.holidays = holidays if holidays
         self.time_zone = time_zone if time_zone
         self.half_days = half_days if half_days
+        self.biweekly = biweekly if biweekly
         yield
       ensure
         self.working_hours = original_working_hours
         self.holidays = original_holidays
         self.time_zone = original_time_zone
-        self.half_days = original_half_days
+        self.biweekly = original_biweekly
       end
 
       private
@@ -125,6 +141,15 @@ module WorkingHours
           holidays: [],
           time_zone: ActiveSupport::TimeZone['UTC'],
           half_days: {
+            mon: false,
+            tue: false,
+            wed: false,
+            thu: false,
+            fri: false,
+            sat: false,
+            sun: false
+          },
+          biweekly: {
             mon: false,
             tue: false,
             wed: false,
@@ -205,6 +230,12 @@ module WorkingHours
       def validate_half_days! week
         if (invalid_keys = (week.keys - DAYS_OF_WEEK)).any?
           raise InvalidConfiguration.new "Invalid half-day identifier(s): #{invalid_keys.join(', ')} - must be 3 letter symbols"
+        end
+      end
+
+      def validate_biweekly! week
+        if (invalid_keys = (week.keys - DAYS_OF_WEEK)).any?
+          raise InvalidConfiguration.new "Invalid biweekly identifier(s): #{invalid_keys.join(', ')} - must be 3 letter symbols"
         end
       end
 

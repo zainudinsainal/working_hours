@@ -449,6 +449,14 @@ describe WorkingHours::Computation do
              )).to eq(4.5)
     end
 
+    it 'handles biweekly' do
+      WorkingHours::Config.biweekly = {:mon => true}
+      expect(working_days_between(
+                 Date.new(1991, 11, 15), # friday to friday
+                 Date.new(1991, 11, 22)
+             )).to eq(4.25)
+    end
+
     it 'returns negative if params are reversed' do
       expect(working_days_between(
         Date.new(1991, 11, 22), # friday to friday
@@ -491,6 +499,13 @@ describe WorkingHours::Computation do
       expect(working_days_in(
                  Date.new(1991, 11, 15)..Date.new(1991, 11, 22)  # friday to friday
              )).to eq(5.5)
+    end
+
+    it 'handles biweekly' do
+      WorkingHours::Config.biweekly = {:mon => true}
+      expect(working_days_in(
+                 Date.new(1991, 11, 15)..Date.new(1991, 11, 22)  # friday to friday
+             )).to eq(5.25)
     end
 
     it 'handles arrays' do

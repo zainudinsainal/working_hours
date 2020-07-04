@@ -46,6 +46,10 @@ module WorkingHours
         WorkingHours.half_day?(self)
       end
 
+      def biweekly?
+        WorkingHours.biweekly?(self)
+      end
+
       def in_working_hours?
         WorkingHours.in_working_hours?(self)
       end

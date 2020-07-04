@@ -154,6 +154,13 @@ module WorkingHours
       config[:half_days][time.wday]
     end
 
+    def biweekly? time, config: nil
+      return false unless working_day?(time, config: config)
+      config ||= wh_config
+      time = in_config_zone(time, config: config)
+      config[:biweekly][time.wday]
+    end
+
     def in_working_hours? time, config: nil
       config ||= wh_config
       time = in_config_zone(time, config: config)
@@ -177,6 +184,8 @@ module WorkingHours
           from += 1.day
           if half_day?(from, config: config)
             days += 0.5
+          elsif biweekly?(from, config: config)
+            days += 0.25
           elsif working_day?(from, config: config)
             days += 1
           end
@@ -191,6 +200,8 @@ module WorkingHours
         day = in_config_zone(day, config: config)
         if half_day?(day, config: config)
           days + 0.5
+        elsif biweekly?(day, config: config)
+          days += 0.25
         elsif working_day?(day, config: config)
           days + 1
         else
