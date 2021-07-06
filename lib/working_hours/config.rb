@@ -7,6 +7,7 @@ module WorkingHours
 
     TIME_FORMAT = /\A([0-2][0-9])\:([0-5][0-9])(?:\:([0-5][0-9]))?\z/
     DAYS_OF_WEEK = [:sun, :mon, :tue, :wed, :thu, :fri, :sat]
+    MIDNIGHT = Rational('86399.999999')
 
     class << self
 
@@ -32,9 +33,26 @@ module WorkingHours
         config.delete :precompiled
       end
 
+      def holiday_hours
+        config[:holiday_hours]
+      end
+
+      def holiday_hours=(val)
+        validate_holiday_hours! val
+        config[:holiday_hours] = val
+        global_config[:holiday_hours] = val
+        config.delete :precompiled
+      end
+
       # Returns an optimized for computing version
       def precompiled
-        config_hash = [config[:working_hours], config[:holidays], config[:time_zone], config[:half_days]].hash
+        config_hash = [
+          config[:working_hours],
+          config[:holiday_hours],
+          config[:holidays],
+          config[:time_zone]
+        ].hash
+
         if config_hash != config[:config_hash]
           config[:config_hash] = config_hash
           config.delete :precompiled
@@ -42,13 +60,19 @@ module WorkingHours
 
         config[:precompiled] ||= begin
           validate_working_hours! config[:working_hours]
+          validate_holiday_hours! config[:holiday_hours]
           validate_holidays! config[:holidays]
           validate_time_zone! config[:time_zone]
-          compiled = {working_hours: [], half_days: []}
+          compiled = {working_hours: Array.new(7) { Hash.new }, holiday_hours: {}, half_days: []}
           working_hours.each do |day, hours|
-            compiled[:working_hours][DAYS_OF_WEEK.index(day)] = {}
             hours.each do |start, finish|
               compiled[:working_hours][DAYS_OF_WEEK.index(day)][compile_time(start)] = compile_time(finish)
+            end
+          end
+          holiday_hours.each do |day, hours|
+            compiled[:holiday_hours][day] = {}
+            hours.each do |start, finish|
+              compiled[:holiday_hours][day][compile_time(start)] = compile_time(finish)
             end
           end
           half_days.each do |day, is_half_day|
@@ -86,18 +110,21 @@ module WorkingHours
         Thread.current[:working_hours] = default_config
       end
 
-      def with_config(working_hours: nil, holidays: nil, time_zone: nil, half_days: nil)
+      def with_config(working_hours: nil, holiday_hours: nil, holidays: nil, time_zone: nil, half_days: nil)
         original_working_hours = self.working_hours
+        original_holiday_hours = self.holiday_hours
         original_holidays = self.holidays
         original_time_zone = self.time_zone
         original_half_days = self.half_days
         self.working_hours = working_hours if working_hours
+        self.holiday_hours = holiday_hours if holiday_hours
         self.holidays = holidays if holidays
         self.time_zone = time_zone if time_zone
         self.half_days = half_days if half_days
         yield
       ensure
         self.working_hours = original_working_hours
+        self.holiday_hours = original_holiday_hours
         self.holidays = original_holidays
         self.time_zone = original_time_zone
         self.half_days = original_half_days
@@ -122,6 +149,7 @@ module WorkingHours
             thu: {'09:00' => '17:00'},
             fri: {'09:00' => '17:00'}
           },
+          holiday_hours: {},
           holidays: [],
           time_zone: ActiveSupport::TimeZone['UTC'],
           half_days: {
@@ -142,18 +170,12 @@ module WorkingHours
         sec = time[TIME_FORMAT,3].to_i
         time = hour * 3600 + min * 60 + sec
         # Converts 24:00 to 23:59:59.999999
-        return 86399.999999 if time == 86400
+        return MIDNIGHT if time == 86400
         time
       end
 
-      def validate_working_hours! week
-        if week.empty?
-          raise InvalidConfiguration.new "No working hours given"
-        end
-        if (invalid_keys = (week.keys - DAYS_OF_WEEK)).any?
-          raise InvalidConfiguration.new "Invalid day identifier(s): #{invalid_keys.join(', ')} - must be 3 letter symbols"
-        end
-        week.each do |day, hours|
+      def validate_hours! dates
+        dates.each do |day, hours|
           if not hours.is_a? Hash
             raise InvalidConfiguration.new "Invalid type for `#{day}`: #{hours.class} - must be Hash"
           elsif hours.empty?
@@ -175,6 +197,23 @@ module WorkingHours
             last_time = finish
           end
         end
+      end
+
+      def validate_working_hours! week
+        if week.empty?
+          raise InvalidConfiguration.new "No working hours given"
+        end
+        if (invalid_keys = (week.keys - DAYS_OF_WEEK)).any?
+          raise InvalidConfiguration.new "Invalid day identifier(s): #{invalid_keys.join(', ')} - must be 3 letter symbols"
+        end
+        validate_hours!(week)
+      end
+
+      def validate_holiday_hours! days
+        if (invalid_keys = (days.keys.reject{ |day| day.is_a?(Date) })).any?
+          raise InvalidConfiguration.new "Invalid day identifier(s): #{invalid_keys.join(', ')} - must be a Date object"
+        end
+        validate_hours!(days)
       end
 
       def validate_holidays! holidays
@@ -207,12 +246,10 @@ module WorkingHours
           raise InvalidConfiguration.new "Invalid half-day identifier(s): #{invalid_keys.join(', ')} - must be 3 letter symbols"
         end
       end
-
     end
 
     private
 
-    def initialize
-    end
+    def initialize; end
   end
 end
